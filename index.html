@@ -1,1 +1,427 @@
-TESt grischa
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0720">
+<title>rutisgri.ch – Spielen &amp; Lernen</title>
+<style>
+  :root {
+    --bg: #0b0720;
+    --bg-2: #140b33;
+    --surface: rgba(255, 255, 255, .05);
+    --border: rgba(255, 255, 255, .12);
+    --text: #f3efff;
+    --muted: #a59cc7;
+    --pink: #ff3d9a;
+    --cyan: #2ee6ff;
+    --yellow: #ffd23f;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+  a { color: inherit; }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    position: relative;
+    min-height: 92vh;
+    min-height: 92svh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 16px 42vh;
+    padding-bottom: 42svh;
+    text-align: center;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 62%, rgba(255, 61, 154, .35), transparent 70%),
+      linear-gradient(180deg, #0b0720 0%, #1b0b45 55%, #3a0f5c 100%);
+  }
+  .stars {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .sun {
+    position: absolute;
+    left: 50%;
+    bottom: 22%;
+    width: min(44vw, 240px);
+    aspect-ratio: 1;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background:
+      repeating-linear-gradient(180deg, transparent 0 9%, #1b0b45 9% 11.5%),
+      linear-gradient(180deg, var(--yellow) 0%, #ff8a3d 45%, var(--pink) 100%);
+    box-shadow: 0 0 80px rgba(255, 61, 154, .55);
+    opacity: .9;
+  }
+  .floor {
+    position: absolute;
+    left: -50%;
+    right: -50%;
+    bottom: 0;
+    height: 32%;
+    background-color: #0b0720;
+    background-image:
+      linear-gradient(rgba(46, 230, 255, .55) 2px, transparent 2px),
+      linear-gradient(90deg, rgba(46, 230, 255, .55) 2px, transparent 2px);
+    background-size: 60px 60px;
+    transform: perspective(340px) rotateX(62deg);
+    transform-origin: 50% 0;
+    animation: drive 1.6s linear infinite;
+    border-top: 2px solid var(--cyan);
+    box-shadow: 0 -8px 40px rgba(46, 230, 255, .5);
+  }
+  .floor::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(11, 7, 32, .85), transparent 55%);
+  }
+  @keyframes drive {
+    to { background-position: 0 60px, 0 0; }
+  }
+
+  .hero-content { position: relative; z-index: 1; }
+  .insert-coin {
+    display: inline-block;
+    margin-bottom: 20px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(11, 7, 32, .55);
+    font-family: var(--mono);
+    font-size: .8rem;
+    letter-spacing: .18em;
+    color: var(--yellow);
+    animation: blink 1.4s steps(2, jump-none) infinite;
+  }
+  @keyframes blink { 50% { opacity: .35; } }
+  h1 {
+    margin: 0;
+    font-size: clamp(2.6rem, 12vw, 7rem);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -.03em;
+    background: linear-gradient(180deg, #fff 20%, var(--cyan) 60%, var(--pink) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 4px 0 rgba(255, 61, 154, .6)) drop-shadow(0 0 28px rgba(46, 230, 255, .45));
+  }
+  h1 .dot { -webkit-text-fill-color: var(--yellow); }
+  .tagline {
+    margin: 20px auto 32px;
+    max-width: 34ch;
+    font-size: clamp(1.05rem, 3.4vw, 1.35rem);
+    color: var(--text);
+    text-shadow: 0 2px 12px #0b0720;
+  }
+  .cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+  }
+  .btn {
+    padding: 14px 26px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 1.05rem;
+    text-decoration: none;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .btn-play {
+    background: var(--pink);
+    color: #fff;
+    box-shadow: 0 6px 0 #a3125a, 0 0 30px rgba(255, 61, 154, .6);
+  }
+  .btn-learn {
+    background: var(--cyan);
+    color: #06202a;
+    box-shadow: 0 6px 0 #0d8fa3, 0 0 30px rgba(46, 230, 255, .45);
+  }
+  .btn:hover, .btn:focus-visible { transform: translateY(-3px); outline: none; }
+  .btn:active { transform: translateY(4px); box-shadow: none; }
+
+  /* ---------- Sections ---------- */
+  main {
+    position: relative;
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 72px 16px 40px;
+  }
+  section { margin-bottom: 88px; scroll-margin-top: 24px; }
+  .kicker {
+    font-family: var(--mono);
+    font-size: .8rem;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--c, var(--pink));
+  }
+  h2 {
+    margin: 4px 0 8px;
+    font-size: clamp(1.8rem, 6vw, 2.6rem);
+    font-weight: 800;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+  }
+  .section-lead { margin: 0 0 28px; color: var(--muted); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background:
+      radial-gradient(circle at 85% 0%, color-mix(in srgb, var(--c) 28%, transparent), transparent 60%),
+      var(--surface);
+    text-decoration: none;
+    overflow: hidden;
+    transition: transform .2s, border-color .2s, box-shadow .2s;
+  }
+  .card:hover, .card:focus-visible {
+    transform: translateY(-6px);
+    border-color: var(--c);
+    box-shadow: 0 14px 40px -12px var(--c);
+    outline: none;
+  }
+  .card .num {
+    font-family: var(--mono);
+    font-size: .75rem;
+    letter-spacing: .18em;
+    color: var(--c);
+  }
+  .card .icon {
+    margin: 14px 0 10px;
+    font-size: 3.4rem;
+    line-height: 1;
+    transition: transform .25s;
+  }
+  .card:hover .icon, .card:focus-visible .icon { transform: scale(1.18) rotate(-8deg); }
+  .card .title { font-size: 1.3rem; font-weight: 800; line-height: 1.2; }
+  .card .desc { margin-top: 6px; color: var(--muted); font-size: .95rem; flex: 1; }
+  .card .go {
+    margin-top: 18px;
+    font-family: var(--mono);
+    font-size: .85rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    color: var(--c);
+  }
+  .card .go::after {
+    content: " →";
+    display: inline-block;
+    transition: transform .2s;
+  }
+  .card:hover .go::after, .card:focus-visible .go::after { transform: translateX(6px); }
+
+  /* Featured learning card */
+  .feature {
+    --c: var(--cyan);
+    flex-direction: row;
+    align-items: center;
+    gap: 24px;
+    padding: 28px;
+  }
+  .feature-text { display: flex; flex-direction: column; gap: 4px; }
+  .feature .icon { margin: 0; font-size: clamp(4rem, 14vw, 6.5rem); }
+  .feature .title { font-size: clamp(1.5rem, 5vw, 2.1rem); }
+  .feature .desc { font-size: 1.05rem; }
+  @media (max-width: 560px) {
+    .feature { flex-direction: column; align-items: flex-start; gap: 8px; }
+  }
+
+  footer {
+    padding: 28px 16px 40px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-family: var(--mono);
+    font-size: .8rem;
+    letter-spacing: .1em;
+    color: var(--muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .floor, .insert-coin { animation: none; }
+    .btn, .card, .card .icon, .card .go::after { transition: none; }
+    .btn:hover, .btn:focus-visible,
+    .card:hover, .card:focus-visible,
+    .card:hover .icon, .card:focus-visible .icon,
+    .card:hover .go::after, .card:focus-visible .go::after { transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <canvas class="stars" id="stars"></canvas>
+  <div class="sun" aria-hidden="true"></div>
+  <div class="floor" aria-hidden="true"></div>
+
+  <div class="hero-content">
+    <div class="insert-coin">▶ PRESS START</div>
+    <h1>rutisgri<span class="dot">.</span>ch</h1>
+    <p class="tagline">Selbstgemachte Spiele und Lern-Apps – direkt im Browser, ohne Installation.</p>
+    <div class="cta">
+      <a class="btn btn-play" href="#games">🎮 Spielen</a>
+      <a class="btn btn-learn" href="#lernen">🧠 Lernen</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="games" style="--c: var(--pink)">
+    <div class="kicker">Level 1</div>
+    <h2>Single-Page-Games</h2>
+    <p class="section-lead">Fünf Spiele, jedes eine einzige Seite. Antippen und loslegen.</p>
+
+    <ul class="grid">
+      <li>
+        <a class="card" style="--c:#ffd23f" href="single-page-games/gorillas.html">
+          <span class="num">GAME 01</span>
+          <span class="icon">🦍</span>
+          <span class="title">Gorillas</span>
+          <span class="desc">Der Klassiker GORILLA.BAS als Multiplayer.</span>
+          <span class="go">START</span>
+        </a>
+      </li>
+      <li>
+        <a class="card" style="--c:#ff7a3d" href="single-page-games/hotel-kong.html">
+          <span class="num">GAME 02</span>
+          <span class="icon">🐒</span>
+          <span class="title">Hotel Kong</span>
+          <span class="desc">Affenstarkes Abenteuer im Hotel Kong.</span>
+          <span class="go">START</span>
+        </a>
+      </li>
+      <li>
+        <a class="card" style="--c:#2ee6ff" href="single-page-games/piratenschatz-teneriffa.html">
+          <span class="num">GAME 03</span>
+          <span class="icon">🏴‍☠️</span>
+          <span class="title">Der Piratenschatz von Teneriffa</span>
+          <span class="desc">Mit Fabrice &amp; Laurent auf Schatzsuche.</span>
+          <span class="go">START</span>
+        </a>
+      </li>
+      <li>
+        <a class="card" style="--c:#ff3d9a" href="single-page-games/pong-duell.html">
+          <span class="num">GAME 04</span>
+          <span class="icon">🏓</span>
+          <span class="title">Pong Duell</span>
+          <span class="desc">1 Natel, 2 Spieler – wer gewinnt das Duell?</span>
+          <span class="go">START</span>
+        </a>
+      </li>
+      <li>
+        <a class="card" style="--c:#9dff5c" href="single-page-games/raederwerk.html">
+          <span class="num">GAME 05</span>
+          <span class="icon">⚙️</span>
+          <span class="title">Räderwerk</span>
+          <span class="desc">Das Zahnrad-Denkspiel für kluge Köpfe.</span>
+          <span class="go">START</span>
+        </a>
+      </li>
+    </ul>
+  </section>
+
+  <section id="lernen" style="--c: var(--cyan)">
+    <div class="kicker">Level 2</div>
+    <h2>Lernen</h2>
+    <p class="section-lead">Üben, das Spass macht.</p>
+
+    <a class="card feature" href="wortschatzkiste-app/index.html">
+      <span class="icon">🗃️</span>
+      <span class="feature-text">
+        <span class="num">APP 01</span>
+        <span class="title">Wortschatzkiste</span>
+        <span class="desc">Wörter mit Karteikarten üben – Runde für Runde zum Wortschatz-Profi.</span>
+        <span class="go">ÖFFNEN</span>
+      </span>
+    </a>
+  </section>
+</main>
+
+<footer>© <span id="year">2026</span> RUTISGRI.CH · MADE WITH ♥</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // Sternenhimmel im Hero
+  (function () {
+    var canvas = document.getElementById('stars');
+    var ctx = canvas.getContext('2d');
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var stars = [];
+    var w = 0, h = 0;
+
+    function resize() {
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = canvas.clientWidth;
+      h = canvas.clientHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      var count = Math.round(w * h / 6000);
+      stars = [];
+      for (var i = 0; i < count; i++) {
+        stars.push({
+          x: Math.random() * w,
+          y: Math.random() * h * 0.66,
+          r: Math.random() * 1.4 + 0.3,
+          p: Math.random() * Math.PI * 2,
+          s: Math.random() * 1.5 + 0.5
+        });
+      }
+      draw(0);
+    }
+
+    function draw(t) {
+      ctx.clearRect(0, 0, w, h);
+      for (var i = 0; i < stars.length; i++) {
+        var st = stars[i];
+        var a = reduce ? 0.8 : 0.45 + 0.55 * Math.sin(st.p + t * 0.001 * st.s);
+        ctx.globalAlpha = Math.max(a, 0.1);
+        ctx.fillStyle = i % 7 === 0 ? '#2ee6ff' : '#ffffff';
+        ctx.beginPath();
+        ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function loop(t) {
+      draw(t);
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+    if (!reduce) requestAnimationFrame(loop);
+  })();
+</script>
+</body>
+</html>
