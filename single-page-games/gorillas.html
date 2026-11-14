@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GORILLA.BAS — Multiplayer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root{
+  --sky:#0000A8; --gray:#A8A8A8; --cyan:#00A8A8; --red:#A80000;
+  --yellow:#FCFC54; --white:#FCFCFC; --black:#000;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--black);
+  font-family:'Press Start 2P',monospace;
+  color:var(--white);
+  display:flex;flex-direction:column;align-items:center;
+  min-height:100vh;
+}
+#dosbar{
+  width:100%;max-width:900px;
+  background:var(--cyan);color:var(--black);
+  font-size:10px;padding:6px 10px;
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;
+}
+#wrap{width:100%;max-width:900px;position:relative;line-height:0}
+canvas#game{width:100%;height:auto;display:block;image-rendering:pixelated;background:var(--sky)}
+/* Scanlines-Signatur */
+#wrap::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,.12) 0 1px,transparent 1px 3px);
+}
+@media (prefers-reduced-motion:no-preference){
+  #wrap::after{animation:flicker 4s infinite}
+  @keyframes flicker{0%,100%{opacity:.9}50%{opacity:1}}
+}
+#hud{
+  width:100%;max-width:900px;
+  background:var(--black);border-top:2px solid var(--gray);
+  padding:10px;font-size:10px;line-height:1.8;
+}
+.row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.pname{padding:2px 6px}
+.pname.active{background:var(--yellow);color:var(--black)}
+#msg{color:var(--yellow);min-height:16px;margin:6px 0;font-size:10px}
+#controls{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:8px;color:var(--gray)}
+.field .stepper{display:flex}
+input[type=number]{
+  width:70px;background:var(--black);color:var(--white);
+  border:2px solid var(--gray);font-family:inherit;font-size:12px;
+  padding:8px 4px;text-align:center;-moz-appearance:textfield;
+}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+input[type=number]:focus{outline:none;border-color:var(--yellow)}
+button{
+  font-family:inherit;font-size:10px;cursor:pointer;
+  background:var(--gray);color:var(--black);border:none;
+  padding:10px 12px;border-top:2px solid var(--white);border-left:2px solid var(--white);
+  border-right:2px solid #545454;border-bottom:2px solid #545454;
+}
+button:active{border-top-color:#545454;border-left-color:#545454;border-right-color:var(--white);border-bottom-color:var(--white)}
+button.primary{background:var(--red);color:var(--white)}
+.step{width:34px;padding:10px 0}
+#overlay{
+  position:absolute;inset:0;background:rgba(0,0,168,.96);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;text-align:center;padding:20px;line-height:1.6;z-index:5;
+}
+#overlay h1{font-size:clamp(16px,4vw,28px);color:var(--yellow);text-shadow:3px 3px 0 var(--red)}
+#overlay p{font-size:9px;color:var(--white);max-width:520px}
+#overlay input[type=text]{
+  background:var(--black);color:var(--yellow);border:2px solid var(--gray);
+  font-family:inherit;font-size:10px;padding:10px;width:220px;text-align:center;
+}
+label.chk{
+  font-size:9px;color:var(--white);display:flex;align-items:center;gap:8px;
+  cursor:pointer;background:rgba(0,0,0,.35);padding:10px 14px;border:2px solid var(--gray);
+}
+label.chk input{width:16px;height:16px;accent-color:var(--red);cursor:pointer}
+.hidden{display:none !important}
+#windrow{display:flex;align-items:center;gap:6px;font-size:9px}
+#footer{font-size:7px;color:var(--gray);padding:8px;text-align:center;line-height:1.8}
+</style>
+</head>
+<body>
+
+<div id="dosbar">
+  <span>C:\&gt;GORILLA.BAS</span>
+  <span id="lvlLabel">LEVEL 1/10</span>
+</div>
+
+<div id="wrap">
+  <canvas id="game" width="800" height="500"></canvas>
+
+  <div id="overlay">
+    <h1>G O R I L L A S</h1>
+    <p>Zwei Gorillas. Eine Stadt. Explosive Bananen.<br><br>
+    WINKEL und GESCHWINDIGKEIT eingeben, WERFEN drücken.<br>
+    Wer den Gegner trifft, gewinnt das Level. 10 Level – Wind wird stärker!</p>
+    <input id="name1" type="text" maxlength="10" value="SPIELER 1">
+    <input id="name2" type="text" maxlength="10" value="SPIELER 2">
+    <label class="chk"><input type="checkbox" id="craneChk"> 🏗 KRAN-MODUS (SCHWERER)</label>
+    <button class="primary" id="startBtn">SPIEL STARTEN</button>
+  </div>
+</div>
+
+<div id="hud">
+  <div class="row">
+    <span class="pname" id="p1label">SPIELER 1: 0</span>
+    <div id="windrow">WIND <canvas id="windc" width="100" height="14"></canvas></div>
+    <span class="pname" id="p2label">SPIELER 2: 0</span>
+  </div>
+  <div id="msg">&nbsp;</div>
+  <div class="row">
+    <div id="controls">
+      <div class="field">
+        <label>WINKEL (0-90)</label>
+        <div class="stepper">
+          <button class="step" data-t="angle" data-d="-5">-</button>
+          <input type="number" id="angle" min="0" max="90" value="45">
+          <button class="step" data-t="angle" data-d="5">+</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>TEMPO (10-500)</label>
+        <div class="stepper">
+          <button class="step" data-t="power" data-d="-5">-</button>
+          <input type="number" id="power" min="10" max="500" value="60">
+          <button class="step" data-t="power" data-d="5">+</button>
+        </div>
+      </div>
+      <button class="primary" id="throwBtn">WERFEN!</button>
+    </div>
+  </div>
+</div>
+<div id="footer">HOMMAGE AN GORILLA.BAS (<span id="secretQB" style="cursor:pointer">QBASIC</span>, <span id="secret1991" style="cursor:pointer">1991</span>) · HOT-SEAT-MULTIPLAYER · ENTER = WERFEN</div>
+
+<script>
+(()=>{
+const W=800,H=500,GRAV=32;
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const city=document.createElement('canvas');city.width=W;city.height=H;
+const cctx=city.getContext('2d');
+const windc=document.getElementById('windc'),wctx=windc.getContext('2d');
+const COLORS={sky:'#0000A8',gray:'#A8A8A8',cyan:'#00A8A8',red:'#A80000',yellow:'#FCFC54',white:'#FCFCFC',win1:'#FCFC54',win2:'#545454'};
+
+let names=['SPIELER 1','SPIELER 2'],scores=[0,0];
+let level=1,MAXLVL=10,wind=0,turn=0,state='idle';
+let gorillas=[],sunShocked=0,buildings=[];
+let banana=null,explosion=null,danceT=0,winner=-1;
+let bananas=[],explosions=[];
+let cheatArmed=false,cheatBuf='',lastBoom=0;
+let megaArmed=false,cheatBufL='';
+let cityData=null;
+function refreshCityData(){cityData=cctx.getImageData(0,0,W,H).data;}
+
+/* ---------- Kräne ---------- */
+let craneMode=false,cranes=[],craneT=0;
+function spawnCranes(){
+  cranes=[];
+  if(!craneMode)return;
+  const count=Math.min(3,1+((level-1)/4|0)+(Math.random()<.5?1:0));
+  // Kandidaten: hohe Gebäude, aber nicht die der Gorillas
+  const gxs=gorillas.map(g=>g.x);
+  const cand=buildings
+    .filter(b=>!gxs.some(x=>x>=b.x&&x<=b.x+b.w))
+    .sort((a,b)=>b.h-a.h).slice(0,6);
+  for(let i=0;i<count&&cand.length;i++){
+    const b=cand.splice((Math.random()*cand.length)|0,1)[0];
+    const topY=H-b.h;
+    const towerX=b.x+b.w/2;
+    const dir=towerX<W/2?1:-1; // Ausleger Richtung Spielfeldmitte
+    const jy=22; // Ausleger ganz oben am Displayrand
+    cranes.push({
+      towerX, topY, towerH:topY-jy, dir,
+      jib:55+Math.random()*25,
+      minL:15,
+      maxL:Math.max(60,topY-jy-20), // Last pendelt von ganz oben bis knapp übers Dach
+      phase:Math.random()*6.28,
+      speed:.35+Math.random()*.35
+    });
+  }
+}
+function craneLoad(c){
+  const jx=c.towerX+c.dir*c.jib;
+  const jy=c.topY-c.towerH;
+  const L=c.minL+(c.maxL-c.minL)*(.5+.5*Math.sin(craneT*c.speed+c.phase));
+  return {jx,jy,x:jx,y:jy+L};
+}
+function drawCranes(){
+  cranes.forEach(c=>{
+    const jy=c.topY-c.towerH, jx=c.towerX+c.dir*c.jib;
+    // Turm (Gittermast)
+    ctx.strokeStyle=COLORS.red;ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(c.towerX-5,c.topY);ctx.lineTo(c.towerX-5,jy);
+    ctx.moveTo(c.towerX+5,c.topY);ctx.lineTo(c.towerX+5,jy);
+    ctx.stroke();
+    ctx.lineWidth=1.5;
+    for(let y=c.topY-6;y>jy+4;y-=12){
+      ctx.beginPath();ctx.moveTo(c.towerX-5,y);ctx.lineTo(c.towerX+5,y-8);ctx.stroke();
+    }
+    // Ausleger + Gegenausleger
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(c.towerX-c.dir*18,jy);ctx.lineTo(jx+c.dir*6,jy);
+    ctx.stroke();
+    // Abspannseile über Turmspitze
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(c.towerX,jy-14);ctx.lineTo(jx,jy);
+    ctx.moveTo(c.towerX,jy-14);ctx.lineTo(c.towerX-c.dir*18,jy);
+    ctx.moveTo(c.towerX,jy-14);ctx.lineTo(c.towerX,jy);
+    ctx.stroke();
+    // Gegengewicht
+    ctx.fillStyle='#545454';
+    ctx.fillRect(c.towerX-c.dir*18-6,jy,12,9);
+    // Kabel + Last
+    const l=craneLoad(c);
+    ctx.strokeStyle=COLORS.white;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(jx,jy);ctx.lineTo(l.x,l.y);ctx.stroke();
+    ctx.fillStyle=COLORS.yellow;
+    ctx.fillRect(l.x-7,l.y,14,14);
+    ctx.strokeStyle=COLORS.black;ctx.lineWidth=1;
+    ctx.strokeRect(l.x-7,l.y,14,14);
+    ctx.beginPath();ctx.moveTo(l.x-7,l.y+7);ctx.lineTo(l.x+7,l.y+7);ctx.stroke();
+  });
+}
+let aims=[{a:45,p:60},{a:45,p:60}];
+function loadAim(){
+  document.getElementById('angle').value=aims[turn].a;
+  document.getElementById('power').value=aims[turn].p;
+}
+function saveAim(){
+  aims[turn].a=Math.max(0,Math.min(90,+document.getElementById('angle').value||45));
+  aims[turn].p=Math.max(10,Math.min(500,+document.getElementById('power').value||60));
+}
+
+/* ---------- Audio ---------- */
+let AC=null;
+function beep(f,d,type='square',vol=.08){
+  try{
+    AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type=type;o.frequency.value=f;g.gain.value=vol;
+    o.connect(g);g.connect(AC.destination);
+    o.start();g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);
+    o.stop(AC.currentTime+d);
+  }catch(e){}
+}
+function boom(){beep(80,.4,'sawtooth',.15);setTimeout(()=>beep(50,.5,'sawtooth',.12),80)}
+
+/* ---------- Stadt ---------- */
+function genCity(){
+  cctx.clearRect(0,0,W,H);
+  buildings=[];
+  const pal=[COLORS.gray,COLORS.cyan,COLORS.red];
+  let x=0;
+  const heightBoost=1+(level-1)*0.05;
+  while(x<W){
+    const bw=Math.min(50+Math.random()*60,W-x);
+    const bh=(80+Math.random()*220)*heightBoost;
+    const h=Math.min(bh,H-120);
+    const col=pal[(Math.random()*3)|0];
+    cctx.fillStyle=col;
+    cctx.fillRect(x,H-h,bw,h);
+    // Fenster
+    for(let wy=H-h+8;wy<H-14;wy+=18){
+      for(let wx=x+6;wx<x+bw-8;wx+=14){
+        cctx.fillStyle=Math.random()<.75?COLORS.win1:COLORS.win2;
+        cctx.fillRect(wx,wy,6,9);
+      }
+    }
+    buildings.push({x,w:bw,h});
+    x+=bw;
+  }
+  refreshCityData();
+}
+function placeGorillas(){
+  const pick=(arr)=>arr[(Math.random()*arr.length)|0];
+  const left=pick(buildings.slice(1,3));
+  const rArr=buildings.slice(-3,-1);
+  const right=pick(rArr.length?rArr:[buildings[buildings.length-1]]);
+  gorillas=[
+    {x:left.x+left.w/2, y:H-left.h-14, arms:0},
+    {x:right.x+right.w/2, y:H-right.h-14, arms:0}
+  ];
+}
+
+/* ---------- Zeichnen ---------- */
+function drawGorilla(g,armL,armR){
+  const {x,y}=g;
+  ctx.fillStyle=COLORS.yellow;
+  // Kopf
+  ctx.fillRect(x-5,y-14,10,8);
+  // Körper
+  ctx.fillRect(x-8,y-7,16,14);
+  // Beine
+  ctx.fillRect(x-8,y+7,5,6);ctx.fillRect(x+3,y+7,5,6);
+  // Arme (hoch oder runter)
+  ctx.fillRect(x-12,armL?y-14:y-4,4,10);
+  ctx.fillRect(x+8,armR?y-14:y-4,4,10);
+  // Gesicht
+  ctx.fillStyle=COLORS.black;
+  ctx.fillRect(x-3,y-12,2,2);ctx.fillRect(x+1,y-12,2,2);
+  ctx.fillRect(x-2,y-8,4,1);
+}
+function drawSun(){
+  const sx=W/2,sy=44,r=22;
+  ctx.fillStyle=COLORS.yellow;
+  // Strahlen
+  ctx.strokeStyle=COLORS.yellow;ctx.lineWidth=3;
+  for(let i=0;i<12;i++){
+    const a=i*Math.PI/6;
+    ctx.beginPath();
+    ctx.moveTo(sx+Math.cos(a)*(r+4),sy+Math.sin(a)*(r+4));
+    ctx.lineTo(sx+Math.cos(a)*(r+12),sy+Math.sin(a)*(r+12));
+    ctx.stroke();
+  }
+  ctx.beginPath();ctx.arc(sx,sy,r,0,7);ctx.fill();
+  ctx.fillStyle=COLORS.black;
+  if(sunShocked>0){
+    // O-Mund
+    ctx.fillRect(sx-4,sy-8,3,3);ctx.fillRect(sx+2,sy-8,3,3);
+    ctx.beginPath();ctx.arc(sx,sy+5,5,0,7);ctx.fill();
+    sunShocked--;
+  }else{
+    ctx.fillRect(sx-6,sy-6,4,4);ctx.fillRect(sx+3,sy-6,4,4);
+    ctx.beginPath();ctx.arc(sx,sy+3,8,0,Math.PI);ctx.fill();
+    ctx.fillStyle=COLORS.yellow;
+    ctx.beginPath();ctx.arc(sx,sy+1,8,0,Math.PI);ctx.fill();
+  }
+}
+function drawBanana(b){
+  ctx.save();
+  ctx.translate(b.x,b.y);ctx.rotate(b.rot);
+  if(b.mega){
+    // Riesen-Bumerang: rot mit weißem Kern
+    ctx.lineCap='round';
+    ctx.strokeStyle=COLORS.red;ctx.lineWidth=10;
+    ctx.beginPath();
+    ctx.moveTo(-22,11);ctx.lineTo(0,-16);ctx.lineTo(22,11);
+    ctx.stroke();
+    ctx.strokeStyle=COLORS.white;ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(-22,11);ctx.lineTo(0,-16);ctx.lineTo(22,11);
+    ctx.stroke();
+  }else if(b.boom){
+    // Bumerang: zwei Arme im Winkel
+    ctx.strokeStyle=b.col;ctx.lineWidth=4;ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(-8,4);ctx.lineTo(0,-6);ctx.lineTo(8,4);
+    ctx.stroke();
+  }else{
+    ctx.strokeStyle=COLORS.yellow;ctx.lineWidth=5;
+    ctx.beginPath();ctx.arc(0,0,7,0.3,Math.PI-0.3);ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawWind(){
+  wctx.clearRect(0,0,100,14);
+  wctx.strokeStyle='#FCFC54';wctx.fillStyle='#FCFC54';wctx.lineWidth=2;
+  const mid=50,len=wind*2.2;
+  wctx.beginPath();wctx.moveTo(mid,7);wctx.lineTo(mid+len,7);wctx.stroke();
+  const dir=Math.sign(len)||1;
+  wctx.beginPath();
+  wctx.moveTo(mid+len+dir*5,7);
+  wctx.lineTo(mid+len,3);wctx.lineTo(mid+len,11);
+  wctx.closePath();wctx.fill();
+}
+function drawAimLine(){
+  const g=gorillas[turn],dir=turn===0?1:-1;
+  let a=+document.getElementById('angle').value||0;
+  a=Math.max(0,Math.min(90,a));
+  const rad=a*Math.PI/180;
+  const sx=g.x+dir*14, sy=g.y-18;
+  const len=55;
+  ctx.save();
+  ctx.strokeStyle=COLORS.white;
+  ctx.lineWidth=1.5;
+  ctx.setLineDash([5,5]);
+  ctx.globalAlpha=.85;
+  ctx.beginPath();
+  ctx.moveTo(sx,sy);
+  ctx.lineTo(sx+Math.cos(rad)*len*dir, sy-Math.sin(rad)*len);
+  ctx.stroke();
+  ctx.restore();
+}
+function render(){
+  ctx.fillStyle=COLORS.sky;ctx.fillRect(0,0,W,H);
+  drawSun();
+  ctx.drawImage(city,0,0);
+  drawCranes();
+  if(state==='aim'&&gorillas.length)drawAimLine();
+  gorillas.forEach((g,i)=>{
+    if(state==='dance'&&i===winner){
+      const t=(danceT/8)|0;
+      drawGorilla(g,t%2===0,t%2===1);
+    }else{
+      drawGorilla(g,0,0);
+    }
+  });
+  bananas.forEach(drawBanana);
+  explosions.forEach(ex=>{
+    ctx.fillStyle=ex.t%4<2?COLORS.red:COLORS.yellow;
+    ctx.beginPath();ctx.arc(ex.x,ex.y,ex.r*(ex.t/10),0,7);ctx.fill();
+  });
+}
+
+/* ---------- Spiel-Logik ---------- */
+const msg=t=>document.getElementById('msg').textContent=t;
+function updateHUD(){
+  document.getElementById('p1label').textContent=names[0]+': '+scores[0];
+  document.getElementById('p2label').textContent=names[1]+': '+scores[1];
+  document.getElementById('p1label').classList.toggle('active',turn===0&&state==='aim');
+  document.getElementById('p2label').classList.toggle('active',turn===1&&state==='aim');
+  document.getElementById('lvlLabel').textContent='LEVEL '+level+'/'+MAXLVL;
+  drawWind();
+}
+function newLevel(){
+  genCity();placeGorillas();spawnCranes();
+  const maxW=2+level*1.4;
+  wind=(Math.random()*2-1)*maxW;
+  bananas=[];explosions=[];winner=-1;
+  turn=(level-1)%2;
+  state='aim';
+  loadAim();
+  msg(names[turn]+' ist dran! (Wind: '+(wind>0?'→':'←')+' '+Math.abs(wind).toFixed(1)+')');
+  updateHUD();
+}
+function spawnProj(p,a,extra){
+  const g=gorillas[turn],dir=turn===0?1:-1;
+  const rad=a*Math.PI/180;
+  bananas.push(Object.assign({
+    x:g.x+dir*14, y:g.y-18,
+    vx:Math.cos(rad)*p*dir*.9,
+    vy:-Math.sin(rad)*p*.9,
+    rot:0, age:0, thrower:turn
+  },extra||{}));
+}
+function throwBanana(){
+  if(state!=='aim')return;
+  saveAim();
+  let a=aims[turn].a, p=aims[turn].p;
+  if(megaArmed){
+    megaArmed=false;
+    spawnProj(p,a,{mega:true});
+    msg(names[turn]+': '+a+'° / '+p); // sieht aus wie ein normaler Wurf
+    beep(600,.1);beep(900,.08);
+  }else if(cheatArmed){
+    // 50 Bumerangs: Tempo-Streuung von -25 bis +24 in 1er-Schritten
+    const cols=[COLORS.cyan,COLORS.white,COLORS.yellow,'#FC54FC'];
+    for(let i=0;i<50;i++){
+      const off=i-25; // ... -25..+24
+      const pp=Math.max(10,Math.min(550,p+off));
+      spawnProj(pp,a,{boom:true,col:cols[i%4],rot:Math.random()*6});
+    }
+    cheatArmed=false;
+    msg(names[turn]+': '+a+'° / '+p); // sieht aus wie ein normaler Wurf
+    beep(600,.1);beep(900,.08);
+  }else{
+    spawnProj(p,a);
+    msg(names[turn]+': '+a+'° / '+p);
+    beep(600,.1);beep(900,.08);
+  }
+  state='fly';
+  updateHUD();
+}
+function stepBanana(b,dt){
+  // Oberhalb des Bildschirms: 5x Schwerkraft, damit Projektile schnell zurückkommen
+  b.vy+=GRAV*dt*(b.y<0?5:1);
+  b.vx+=wind*dt*2;
+  b.x+=b.vx*dt;b.y+=b.vy*dt;
+  b.rot+=(b.boom?14:8)*dt;b.age+=dt;
+  // Sicherheitsnetz: nach 12 Sekunden verschwindet das Projektil
+  if(b.age>12)return false;
+  // Sonne erschrecken
+  if(Math.abs(b.x-W/2)<30&&b.y<70)sunShocked=60;
+  // raus?
+  if(b.x<-40||b.x>W+40||b.y>H+40)return false;
+  if(b.y<0)return true;
+  // Gorilla-Treffer
+  const gr=b.mega?24:13;
+  for(let i=0;i<2;i++){
+    if(i===b.thrower&&b.age<.4)continue;
+    const g=gorillas[i];
+    if(Math.abs(b.x-g.x)<gr&&b.y>g.y-16-(b.mega?10:0)&&b.y<g.y+13+(b.mega?10:0)){
+      hitGorilla(i,b.x,b.y,b.thrower);return false;
+    }
+  }
+  // Kranlast-Treffer
+  for(let ci=cranes.length-1;ci>=0;ci--){
+    const l=craneLoad(cranes[ci]);
+    const cr=b.mega?20:9;
+    if(b.x>l.x-cr&&b.x<l.x+cr&&b.y>l.y-2-(b.mega?12:0)&&b.y<l.y+16+(b.mega?12:0)){
+      if(b.mega){
+        // Mega-Bumerang räumt den ganzen Kran ab und fliegt weiter
+        explosions.push({x:l.jx,y:l.jy,r:34,t:0});
+        explosions.push({x:l.x,y:l.y+7,r:24,t:0});
+        cranes.splice(ci,1);
+        const now=performance.now();
+        if(now-lastBoom>120){boom();lastBoom=now}
+      }else{
+        // Normales Projektil wird zerstört (kein Krater)
+        explosions.push({x:b.x,y:b.y,r:14,t:0});
+        const now=performance.now();
+        if(now-lastBoom>120){beep(150,.15,'sawtooth',.1);lastBoom=now}
+        return false;
+      }
+    }
+  }
+  // Gebäude-Treffer (Pixel-Check über Cache)
+  if(b.x>=0&&b.x<W&&b.y>=0&&b.y<H){
+    if(cityData[(((b.y|0)*W+(b.x|0))<<2)+3]>0){
+      if(b.mega){
+        // Mega-Bumerang fräst sich durch: großer Krater, fliegt weiter
+        if(b.cx===undefined||Math.hypot(b.x-b.cx,b.y-b.cy)>10){
+          cctx.globalCompositeOperation='destination-out';
+          cctx.beginPath();cctx.arc(b.x,b.y,38,0,7);cctx.fill();
+          cctx.globalCompositeOperation='source-over';
+          refreshCityData();
+          explosions.push({x:b.x,y:b.y,r:20,t:0});
+          b.cx=b.x;b.cy=b.y;
+          const now=performance.now();
+          if(now-lastBoom>150){boom();lastBoom=now}
+        }
+        return true;
+      }
+      // Krater
+      cctx.globalCompositeOperation='destination-out';
+      cctx.beginPath();cctx.arc(b.x,b.y,26,0,7);cctx.fill();
+      cctx.globalCompositeOperation='source-over';
+      refreshCityData();
+      explosions.push({x:b.x,y:b.y,r:26,t:0});
+      const now=performance.now();
+      if(now-lastBoom>120){boom();lastBoom=now}
+      return false;
+    }
+  }
+  return true;
+}
+function hitGorilla(who,x,y,thrower){
+  if(state!=='fly')return;
+  cctx.globalCompositeOperation='destination-out';
+  cctx.beginPath();cctx.arc(x,y,45,0,7);cctx.fill();
+  cctx.globalCompositeOperation='source-over';
+  refreshCityData();
+  explosions.push({x,y,r:45,t:0});
+  boom();
+  const selfHit=(who===thrower);
+  bananas=[];
+  // Selbsttreffer: Punkt für den Gegner
+  const scorer=(who===0)?1:0;
+  scores[scorer]++;winner=scorer;
+  state='boomwait';
+  setTimeout(()=>{
+    state='dance';danceT=0;
+    beep(523,.15);setTimeout(()=>beep(659,.15),150);setTimeout(()=>beep(784,.3),300);
+    msg((selfHit?'EIGENTOR! ':names[scorer]+' TRIFFT! ')+'Punkt für '+names[scorer]);
+    updateHUD();
+  },700);
+}
+function endThrow(){
+  bananas=[];
+  turn=1-turn;state='aim';
+  loadAim();
+  msg('Daneben! '+names[turn]+' ist dran.');
+  updateHUD();
+}
+
+/* ---------- Loop ---------- */
+let last=0;
+function loop(t){
+  const dt=Math.min((t-last)/1000,.05);last=t;
+  craneT+=dt;
+  if(state==='fly'&&bananas.length){
+    // Substeps für saubere Kollision
+    const steps=bananas.length>1?3:6;
+    for(let s=0;s<steps;s++){
+      if(state!=='fly')break;
+      bananas=bananas.filter(b=>stepBanana(b,dt/steps));
+    }
+    if(state==='fly'&&bananas.length===0)endThrow();
+  }
+  explosions.forEach(ex=>ex.t++);
+  explosions=explosions.filter(ex=>ex.t<=12);
+  if(state==='boomwait'&&explosions.length===0&&winner<0)endThrow();
+  if(state==='dance'){
+    danceT++;
+    if(danceT>110){
+      if(level>=MAXLVL){showEnd()}
+      else{level++;newLevel()}
+    }
+  }
+  render();
+  requestAnimationFrame(loop);
+}
+function showEnd(){
+  state='end';
+  const ov=document.getElementById('overlay');
+  ov.classList.remove('hidden');
+  let t;
+  if(scores[0]>scores[1])t=names[0]+' GEWINNT!';
+  else if(scores[1]>scores[0])t=names[1]+' GEWINNT!';
+  else t='UNENTSCHIEDEN!';
+  ov.querySelector('h1').textContent=t;
+  ov.querySelector('p').innerHTML='ENDSTAND<br><br>'+names[0]+': '+scores[0]+'<br>'+names[1]+': '+scores[1];
+  document.getElementById('name1').classList.add('hidden');
+  document.getElementById('name2').classList.add('hidden');
+  document.getElementById('startBtn').textContent='NOCHMAL SPIELEN';
+}
+
+/* ---------- Events ---------- */
+document.getElementById('startBtn').addEventListener('click',()=>{
+  const n1=document.getElementById('name1').value.trim();
+  const n2=document.getElementById('name2').value.trim();
+  if(n1)names[0]=n1.toUpperCase();
+  if(n2)names[1]=n2.toUpperCase();
+  craneMode=document.getElementById('craneChk').checked;
+  scores=[0,0];level=1;
+  document.getElementById('overlay').classList.add('hidden');
+  newLevel();
+});
+document.getElementById('throwBtn').addEventListener('click',throwBanana);
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&state==='aim'){throwBanana();return}
+  // Cheat: "1991" tippen
+  if(e.key>='0'&&e.key<='9'){
+    cheatBuf=(cheatBuf+e.key).slice(-4);
+    if(cheatBuf==='1991'&&state==='aim'&&!cheatArmed){
+      cheatArmed=true;cheatBuf='';
+      beep(1320,.06,'square',.03); // nur ein leiser Bestätigungston
+    }
+  }
+  // Cheat: "qbasic" tippen
+  if(/^[a-zA-Z]$/.test(e.key)){
+    cheatBufL=(cheatBufL+e.key.toLowerCase()).slice(-6);
+    if(cheatBufL==='qbasic'&&state==='aim'&&!megaArmed){
+      megaArmed=true;cheatBufL='';
+      beep(1320,.06,'square',.03); // nur ein leiser Bestätigungston
+    }
+  }
+});
+document.querySelectorAll('.step').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const inp=document.getElementById(b.dataset.t);
+    inp.value=Math.max(+inp.min,Math.min(+inp.max,(+inp.value||0)+ +b.dataset.d));
+    if(state==='aim')saveAim();
+  });
+});
+['angle','power'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',()=>{if(state==='aim')saveAim()});
+});
+document.getElementById('secret1991').addEventListener('click',()=>{
+  if(state==='aim'&&!cheatArmed){
+    cheatArmed=true;
+    beep(1320,.06,'square',.03); // nur ein leiser Bestätigungston
+  }
+});
+document.getElementById('secretQB').addEventListener('click',()=>{
+  if(state==='aim'&&!megaArmed){
+    megaArmed=true;
+    beep(1320,.06,'square',.03); // nur ein leiser Bestätigungston
+  }
+});
+
+genCity();placeGorillas();updateHUD();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

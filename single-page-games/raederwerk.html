@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Räderwerk — Zahnrad-Denkspiel</title>
+<style>
+  :root {
+    --page:#0B2239; --board:#0E2A47; --line:#BFD9F2; --dim:#6E93B8;
+    --accent:#F5C84C; --ok:#7BE0AD; --danger:#FF6B4A;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --disp: "Avenir Next Condensed", "Arial Narrow", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    margin:0; min-height:100vh; background:var(--page); color:var(--line);
+    font-family:var(--mono); display:flex; flex-direction:column; align-items:center;
+    padding:12px 10px 24px;
+  }
+  .wrap { width:100%; max-width:620px; }
+  header { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 14px; margin-bottom:8px; }
+  h1 { margin:0; font-family:var(--disp); font-weight:700; font-size:24px; letter-spacing:.14em; }
+  .sub { font-size:12px; color:var(--dim); }
+  .hud { width:100%; display:flex; gap:14px; font-size:13px; }
+  #soll { color:var(--accent); }
+  .boardwrap { position:relative; }
+  svg#board {
+    width:100%; aspect-ratio:700/760; display:block; background:var(--board);
+    border:1.5px solid var(--line); touch-action:none; user-select:none;
+  }
+  .hint { font-size:12px; color:var(--dim); margin:8px 0 10px; line-height:1.5; }
+  .tray { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .tray-item {
+    width:100px; border:1.5px solid var(--line); background:var(--board);
+    padding:8px 4px 6px; text-align:center; cursor:grab; touch-action:none;
+    user-select:none; transition:transform .12s ease;
+  }
+  .tray-item:active { transform:scale(.95); }
+  .tray-item.empty { opacity:.4; cursor:not-allowed; border-color:rgba(110,147,184,.35); }
+  .tray-item .lbl { font-size:12px; }
+  .tray-item .cnt { font-size:12px; color:var(--accent); }
+  .controls { margin-left:auto; display:flex; gap:8px; align-items:center; }
+  button {
+    font-family:var(--mono); font-size:13px; background:transparent;
+    border:1.5px solid var(--line); color:var(--line); padding:9px 15px; cursor:pointer;
+  }
+  button:focus-visible, .tray-item:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  button.lvl { padding:9px 13px; border-color:var(--dim); color:var(--dim); }
+  button.lvl.cur { border-color:var(--accent); color:var(--accent); }
+  button.lvl:disabled { opacity:.35; cursor:default; }
+  #stamp {
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    pointer-events:none;
+  }
+  #stamp.show { display:flex; }
+  #stamp .inner {
+    pointer-events:auto; border:4px solid var(--ok); border-radius:10px; padding:16px 28px;
+    background:rgba(11,34,57,.88); text-align:center; transform:rotate(-8deg);
+    animation:stampIn .45s ease-out both;
+  }
+  #stamp .big { font-family:var(--disp); font-weight:700; font-size:30px; letter-spacing:.25em; color:var(--ok); }
+  #stamp .small { font-size:12px; margin:6px 0 12px; }
+  #stamp button { border-color:var(--ok); color:var(--ok); }
+  #finalMsg { font-size:13px; color:var(--accent); }
+  @keyframes stampIn {
+    0% { transform:rotate(-8deg) scale(2.2); opacity:0; }
+    60% { transform:rotate(-8deg) scale(.95); opacity:1; }
+    100% { transform:rotate(-8deg) scale(1); }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>RÄDERWERK</h1>
+    <div class="sub" id="subTitle"></div>
+    <div class="hud">
+      <span id="soll"></span>
+      <span id="ist"></span>
+    </div>
+  </header>
+
+  <div class="boardwrap">
+    <svg id="board" viewBox="0 0 700 760">
+      <defs>
+        <pattern id="gridS" width="20" height="20" patternUnits="userSpaceOnUse">
+          <path d="M20 0H0V20" fill="none" stroke="#BFD9F2" stroke-opacity="0.06" stroke-width="1"/>
+        </pattern>
+        <pattern id="gridL" width="100" height="100" patternUnits="userSpaceOnUse">
+          <path d="M100 0H0V100" fill="none" stroke="#BFD9F2" stroke-opacity="0.13" stroke-width="1"/>
+        </pattern>
+      </defs>
+      <rect width="700" height="760" fill="url(#gridS)"/>
+      <rect width="700" height="760" fill="url(#gridL)"/>
+      <rect x="6" y="6" width="688" height="748" fill="none" stroke="#BFD9F2" stroke-opacity="0.5" stroke-width="1"/>
+      <!-- Schriftfeld -->
+      <g font-size="10" fill="#6E93B8" text-anchor="end">
+        <rect x="454" y="722" width="240" height="32" fill="#0E2A47" stroke="#BFD9F2" stroke-opacity="0.5"/>
+        <line x1="454" y1="738" x2="694" y2="738" stroke="#BFD9F2" stroke-opacity="0.5"/>
+        <line x1="574" y1="722" x2="574" y2="754" stroke="#BFD9F2" stroke-opacity="0.5"/>
+        <text x="569" y="734" id="tbNr">ZCHNG. NR. 001</text>
+        <text x="569" y="750">MODUL 5 · M 1:1</text>
+        <text x="689" y="734">RÄDERWERK</text>
+        <text x="689" y="750" id="tbGepr">GEPR.: —</text>
+      </g>
+      <g id="edgeLayer"></g>
+      <g id="gearLayer"></g>
+      <g id="labelLayer" font-size="14" text-anchor="middle" pointer-events="none"></g>
+      <g id="ghostLayer" pointer-events="none"></g>
+      <text id="jamText" x="350" y="36" text-anchor="middle" font-size="17" fill="#FF6B4A"
+            font-family="var(--disp)" letter-spacing="0.2em" style="display:none">GETRIEBE BLOCKIERT</text>
+    </svg>
+
+    <div id="stamp">
+      <div class="inner">
+        <div class="big">GEPRÜFT ✓</div>
+        <div class="small" id="stampRpm"></div>
+        <button id="btnNext">Nächstes Blatt →</button>
+        <div id="finalMsg" style="display:none">Alle Blätter geprüft — Konstruktion abgenommen!</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hint" id="hint"></div>
+
+  <div class="tray">
+    <span id="traySlots" style="display:contents"></span>
+    <div class="controls">
+      <span id="lvlButtons" style="display:contents"></span>
+      <button id="btnReset">Zurücksetzen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   RÄDERWERK — eigenständige Offline-Version (kein Framework)
+   Modul m = 5 px → Teilkreisradius r = z * 2.5
+   ============================================================ */
+const M = 5, BW = 700, BH = 760, TAU = Math.PI * 2;
+const NS = "http://www.w3.org/2000/svg";
+const COL = {
+  board:"#0E2A47", line:"#BFD9F2", dim:"#6E93B8",
+  fill:"rgba(18,58,94,0.88)", fill2:"rgba(34,86,132,0.92)",
+  accent:"#F5C84C", ok:"#7BE0AD", danger:"#FF6B4A",
+};
+const rOf = z => z * 2.5;
+
+/* Zahnrad-Typen; Doppelräder haben zwei starr verbundene Kränze */
+const TYPES = {
+  z16:{rings:[16]}, z18:{rings:[18]}, z20:{rings:[20]}, z24:{rings:[24]},
+  z32:{rings:[32]}, z36:{rings:[36]}, z40:{rings:[40]}, z48:{rings:[48]},
+  k3612:{rings:[36,12]},
+};
+const ringsOf = k => TYPES[k].rings.map(z => ({ z, r: rOf(z) }));
+const outerOf = k => Math.max(...TYPES[k].rings) * 2.5 + M;
+
+const LEVELS = [
+  { name:"Erste Übertragung",
+    driver:{type:"z40",x:120,y:140,rpm:15}, target:{type:"z20",x:570,y:640},
+    goal:30, pieces:{z48:2,z24:1},
+    hint:"Verbinde Antrieb und Ziel. Zwischenräder ändern die Drehzahl nicht — nur das erste und das letzte Rad bestimmen die Übersetzung." },
+  { name:"Gegen den Uhrzeigersinn",
+    driver:{type:"z36",x:115,y:130,rpm:20}, target:{type:"z18",x:580,y:650},
+    goal:-40, pieces:{z40:3,z24:1},
+    hint:"Jeder Zahneingriff kehrt die Drehrichtung um. Zähle die Kontakte in deiner Kette." },
+  { name:"Die Übersetzung",
+    driver:{type:"z20",x:110,y:120,rpm:30}, target:{type:"z20",x:545,y:615},
+    goal:-90, pieces:{k3612:1,z32:3},
+    hint:"Das Doppelrad dreht als Ganzes. Ob der kleine oder der große Kranz getrieben wird, entscheidet über die Drehzahl." },
+  { name:"Das große Getriebe",
+    driver:{type:"z24",x:120,y:130,rpm:20}, target:{type:"z16",x:540,y:470},
+    goal:-270, pieces:{k3612:2,z24:2},
+    hint:"Zwei Doppelräder hintereinander vervielfachen die Übersetzung." },
+];
+
+/* ---------- Geometrie: Zahnrad-Pfad ---------- */
+const gearPathCache = {};
+function gearPath(z){
+  if (gearPathCache[z]) return gearPathCache[z];
+  const rp = rOf(z), ro = rp + M*0.92, rr = rp - M*1.08, t = TAU/z;
+  const pt = (r,a) => (r*Math.cos(a)).toFixed(2) + " " + (r*Math.sin(a)).toFixed(2);
+  let d = "", first = null;
+  for (let k=0; k<z; k++){
+    const b = k*t;
+    const a1=b-0.24*t, a2=b-0.115*t, a3=b+0.115*t, a4=b+0.24*t;
+    if (k===0){ d = "M " + pt(rr,a1); first = a1; }
+    else d += " A " + rr + " " + rr + " 0 0 1 " + pt(rr,a1);
+    d += " L " + pt(ro,a2) + " A " + ro + " " + ro + " 0 0 1 " + pt(ro,a3) + " L " + pt(rr,a4);
+  }
+  d += " A " + rr + " " + rr + " 0 0 1 " + pt(rr,first) + " Z";
+  return gearPathCache[z] = d;
+}
+
+const dist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
+
+function circleIntersect(c1,r1,c2,r2){
+  const d = dist(c1,c2);
+  if (d < 1e-6 || d > r1+r2 || d < Math.abs(r1-r2)) return null;
+  const a = (r1*r1 - r2*r2 + d*d) / (2*d);
+  const h2 = r1*r1 - a*a;
+  if (h2 < 0) return null;
+  const h = Math.sqrt(h2);
+  const mx = c1.x + (c2.x-c1.x)*a/d, my = c1.y + (c2.y-c1.y)*a/d;
+  const ox = -(c2.y-c1.y)*h/d, oy = (c2.x-c1.x)*h/d;
+  return [{x:mx+ox,y:my+oy},{x:mx-ox,y:my-oy}];
+}
+
+/* ---------- Physik: Netz aus Eingriffen ---------- */
+const MESH_TOL = 2.5;
+function buildNet(nodes, driverId, driverRpm){
+  const edges = [];
+  for (let i=0;i<nodes.length;i++) for (let j=i+1;j<nodes.length;j++){
+    const a = nodes[i], b = nodes[j], d = dist(a,b);
+    let best = null;
+    for (const ra of ringsOf(a.type)) for (const rb of ringsOf(b.type)){
+      const err = Math.abs(d - (ra.r + rb.r));
+      if (err < MESH_TOL && (!best || err < best.err)) best = {err, za:ra.z, zb:rb.z};
+    }
+    if (best) edges.push({a:a.id, b:b.id, za:best.za, zb:best.zb});
+  }
+  const adj = {};
+  nodes.forEach(n => adj[n.id] = []);
+  edges.forEach(e => {
+    adj[e.a].push({to:e.b, zFrom:e.za, zTo:e.zb});
+    adj[e.b].push({to:e.a, zFrom:e.zb, zTo:e.za});
+  });
+  const omega = {}; omega[driverId] = driverRpm;
+  let jammed = false;
+  const q = [driverId];
+  while (q.length){
+    const cur = q.shift();
+    for (const nb of adj[cur]){
+      const w = -omega[cur] * nb.zFrom / nb.zTo;
+      if (omega[nb.to] === undefined){ omega[nb.to] = w; q.push(nb.to); }
+      else if (Math.abs(omega[nb.to] - w) > 0.01 + 0.001*Math.abs(w)) jammed = true;
+    }
+  }
+  return { edges, adj, omega, jammed };
+}
+
+/* Winkel pro Frame — sorgt dafür, dass Zähne exakt ineinandergreifen */
+function computeAngles(nodes, net, driverId, driverRpm, t){
+  const angles = {}, byId = {};
+  nodes.forEach(n => { angles[n.id] = 0; byId[n.id] = n; });
+  angles[driverId] = driverRpm * (Math.PI/30) * t;
+  const seen = new Set([driverId]), q = [driverId];
+  while (q.length){
+    const cur = q.shift();
+    for (const nb of (net.adj[cur] || [])){
+      if (seen.has(nb.to)) continue;
+      seen.add(nb.to);
+      const A = byId[cur], B = byId[nb.to];
+      const th = Math.atan2(B.y-A.y, B.x-A.x);
+      angles[nb.to] = th + Math.PI + (Math.PI - nb.zFrom*(angles[cur]-th)) / nb.zTo;
+      q.push(nb.to);
+    }
+  }
+  return angles;
+}
+
+/* ---------- Einrasten & Gültigkeit ---------- */
+function snapPosition(p, typeKey, others){
+  const myRings = ringsOf(typeKey), cands = [];
+  for (const o of others){
+    const d = dist(p,o);
+    for (const rm of myRings) for (const ro of ringsOf(o.type)){
+      const D = rm.r + ro.r, err = Math.abs(d - D);
+      if (err < 16) cands.push({o, D, err});
+    }
+  }
+  cands.sort((x,y) => x.err - y.err);
+  if (!cands.length) return { x:p.x, y:p.y, snapped:false };
+  const c1 = cands[0];
+  const ux = p.x - c1.o.x, uy = p.y - c1.o.y;
+  const len = Math.hypot(ux,uy) || 1;
+  let pos = { x: c1.o.x + ux/len*c1.D, y: c1.o.y + uy/len*c1.D };
+  for (const c2 of cands){
+    if (c2.o.id === c1.o.id) continue;
+    if (Math.abs(dist(pos,c2.o) - c2.D) < 16){
+      const ix = circleIntersect(c1.o, c1.D, c2.o, c2.D);
+      if (ix) pos = dist(ix[0],p) < dist(ix[1],p) ? ix[0] : ix[1];
+      break;
+    }
+  }
+  return { x:pos.x, y:pos.y, snapped:true };
+}
+
+function positionValid(p, typeKey, others){
+  const out = outerOf(typeKey);
+  if (p.x < out-4 || p.x > BW-out+4 || p.y < out-4 || p.y > BH-out+4) return false;
+  const myRings = ringsOf(typeKey);
+  for (const o of others){
+    const d = dist(p,o);
+    let meshed = false;
+    for (const rm of myRings) for (const ro of ringsOf(o.type)){
+      if (Math.abs(d - (rm.r + ro.r)) < MESH_TOL) meshed = true;
+    }
+    if (!meshed && d < out + outerOf(o.type) - 4) return false;
+  }
+  return true;
+}
+
+/* ---------- SVG-Helfer ---------- */
+function el(name, attrs){
+  const e = document.createElementNS(NS, name);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+/* Erzeugt eine Zahnrad-Gruppe; liefert Referenzen für Rotation & Farbe */
+function makeGear(typeKey, opts){
+  opts = opts || {};
+  const rings = ringsOf(typeKey), big = rings[0], small = rings[1];
+  const root = el("g", {});
+  const strokeEls = [];
+  if (opts.hitArea){
+    root.appendChild(el("circle", { r: Math.max(55, big.r + M + 12), fill: "transparent" }));
+  }
+  const rotor = el("g", {});
+  const pBig = el("path", { d: gearPath(big.z), fill: COL.fill, "stroke-width": 2, "stroke-linejoin": "round" });
+  rotor.appendChild(pBig); strokeEls.push(pBig);
+  if (small){
+    const pS = el("path", { d: gearPath(small.z), fill: COL.fill2, "stroke-width": 2, "stroke-linejoin": "round" });
+    rotor.appendChild(pS); strokeEls.push(pS);
+  }
+  const l1 = el("line", { x1:-14, y1:0, x2:14, y2:0, "stroke-width":1.2, opacity:0.85 });
+  const l2 = el("line", { x1:0, y1:-14, x2:0, y2:14, "stroke-width":1.2, opacity:0.85 });
+  rotor.appendChild(l1); rotor.appendChild(l2); strokeEls.push(l1, l2);
+  root.appendChild(rotor);
+  const pc = el("circle", { r: big.r, fill:"none", "stroke-width":0.8, "stroke-dasharray":"7 6" });
+  root.appendChild(pc); strokeEls.push(pc);
+  let pc2 = null;
+  if (small){
+    pc2 = el("circle", { r: small.r, fill:"none", "stroke-width":0.8, "stroke-dasharray":"5 5" });
+    root.appendChild(pc2); strokeEls.push(pc2);
+  }
+  const hub = el("circle", { r:7.5, fill: COL.board, "stroke-width":1.6 });
+  root.appendChild(hub); strokeEls.push(hub);
+  function setStroke(color, dimmed){
+    strokeEls.forEach(s => s.setAttribute("stroke", color));
+    pc.setAttribute("opacity", dimmed ? 0.25 : 0.45);
+    if (pc2) pc2.setAttribute("opacity", dimmed ? 0.25 : 0.45);
+  }
+  setStroke(opts.stroke || COL.line, false);
+  return { root, rotor, setStroke };
+}
+
+const fmtRpm = v => Math.abs(Math.round(v*10)/10) + " U/min " + (v > 0 ? "↻" : "↺");
+
+/* ---------- Spielzustand ---------- */
+let levelIdx = 0, unlocked = 0, placed = [], solved = false, drag = null, nextId = 1;
+const time = { t:0, last:null, frozen:null };
+let nodes = [], net = { edges:[], adj:{}, omega:{}, jammed:false };
+const gearEls = {};   /* id -> {rotor, setStroke} */
+let ghost = null;
+
+/* DOM-Referenzen */
+const $ = id => document.getElementById(id);
+const svg = $("board"), gearLayer = $("gearLayer"), edgeLayer = $("edgeLayer"),
+      labelLayer = $("labelLayer"), ghostLayer = $("ghostLayer");
+
+function level(){ return LEVELS[levelIdx]; }
+
+function toSvg(cx, cy){
+  const r = svg.getBoundingClientRect();
+  return { x:(cx - r.left)*BW/r.width, y:(cy - r.top)*BH/r.height };
+}
+
+function currentNodes(){
+  const L = level();
+  const act = (drag && drag.id) ? placed.filter(p => p.id !== drag.id) : placed;
+  return [
+    { id:"driver", type:L.driver.type, x:L.driver.x, y:L.driver.y },
+    { id:"target", type:L.target.type, x:L.target.x, y:L.target.y },
+    ...act,
+  ];
+}
+
+function strokeFor(id, connected){
+  if (net.jammed && connected.has(id)) return COL.danger;
+  if (id === "driver") return COL.ok;
+  if (id === "target") return solved ? COL.ok : COL.accent;
+  return connected.has(id) ? COL.line : COL.dim;
+}
+
+function labelY(type, y){
+  const out = outerOf(type);
+  return y - out > 60 ? y - out - 12 : y + out + 26;
+}
+
+/* ---------- Szene neu aufbauen (bei jeder Zustandsänderung) ---------- */
+function rebuild(){
+  const L = level();
+  nodes = currentNodes();
+  net = buildNet(nodes, "driver", L.driver.rpm);
+  const connected = new Set(Object.keys(net.omega));
+
+  /* Sieg prüfen */
+  const trpm = net.omega["target"];
+  if (!solved && !net.jammed && trpm !== undefined &&
+      Math.sign(trpm) === Math.sign(L.goal) &&
+      Math.abs(trpm - L.goal) <= Math.max(0.6, 0.01*Math.abs(L.goal))){
+    solved = true;
+    unlocked = Math.max(unlocked, levelIdx + 1);
+  }
+
+  /* Eingriffslinien */
+  edgeLayer.innerHTML = "";
+  const byId = {}; nodes.forEach(n => byId[n.id] = n);
+  net.edges.forEach(e => {
+    const A = byId[e.a], B = byId[e.b];
+    edgeLayer.appendChild(el("line", {
+      x1:A.x, y1:A.y, x2:B.x, y2:B.y,
+      stroke: net.jammed ? COL.danger : COL.line,
+      "stroke-opacity":0.28, "stroke-width":1, "stroke-dasharray":"3 5",
+    }));
+  });
+
+  /* Räder — große zuerst zeichnen */
+  gearLayer.innerHTML = "";
+  for (const k in gearEls) delete gearEls[k];
+  const sorted = [...nodes].sort((a,b) => outerOf(b.type) - outerOf(a.type));
+  for (const g of sorted){
+    const fixed = g.id === "driver" || g.id === "target";
+    const gear = makeGear(g.type, { stroke: strokeFor(g.id, connected), hitArea: !fixed });
+    gear.setStroke(strokeFor(g.id, connected), !connected.has(g.id));
+    gear.root.setAttribute("transform", "translate(" + g.x + " " + g.y + ")");
+    if (!fixed){
+      gear.root.style.cursor = "grab";
+      gear.root.addEventListener("pointerdown", ev => startDrag(ev, g.type, g.id));
+    }
+    gearLayer.appendChild(gear.root);
+    gearEls[g.id] = gear;
+  }
+
+  /* Beschriftungen */
+  labelLayer.innerHTML = "";
+  const tD = el("text", { x: Math.max(90, L.driver.x), y: labelY(L.driver.type, L.driver.y), fill: COL.ok });
+  tD.textContent = "ANTRIEB · " + fmtRpm(L.driver.rpm);
+  const tT = el("text", { x: Math.min(BW-90, L.target.x), y: labelY(L.target.type, L.target.y), fill: solved ? COL.ok : COL.accent });
+  tT.textContent = "ZIEL · " + fmtRpm(L.goal);
+  labelLayer.appendChild(tD); labelLayer.appendChild(tT);
+
+  /* HUD, Schriftfeld, Fach, Level-Knöpfe */
+  $("subTitle").textContent = "Blatt " + (levelIdx+1) + "/" + LEVELS.length + " · " + L.name;
+  $("soll").textContent = "SOLL " + fmtRpm(L.goal);
+  updateIst();
+  $("tbNr").textContent = "ZCHNG. NR. " + String(levelIdx+1).padStart(3,"0");
+  $("tbGepr").textContent = "GEPR.: " + (solved ? "✓" : "—");
+  $("jamText").style.display = net.jammed ? "" : "none";
+  $("hint").textContent = L.hint + " — Räder aus dem Fach aufs Blatt ziehen; sie rasten am Teilkreis ein. Zum Entfernen wieder nach unten ziehen.";
+  updateTray();
+  updateLevelButtons();
+
+  /* Prüfstempel */
+  $("stamp").classList.toggle("show", solved);
+  if (solved){
+    $("stampRpm").textContent = "Abtrieb läuft mit " + fmtRpm(trpm !== undefined ? trpm : L.goal);
+    const last = levelIdx >= LEVELS.length - 1;
+    $("btnNext").style.display = last ? "none" : "";
+    $("finalMsg").style.display = last ? "" : "none";
+  }
+}
+
+function updateIst(){
+  const trpm = net.omega["target"];
+  const ist = $("ist");
+  if (net.jammed){ ist.textContent = "IST BLOCKIERT"; ist.style.color = COL.danger; }
+  else if (trpm !== undefined){ ist.textContent = "IST " + fmtRpm(trpm); ist.style.color = solved ? COL.ok : COL.line; }
+  else { ist.textContent = "IST —"; ist.style.color = COL.line; }
+}
+
+/* ---------- Vorrat ---------- */
+function remainingCounts(){
+  const used = {};
+  placed.forEach(p => used[p.type] = (used[p.type]||0)+1);
+  const rem = {};
+  for (const k in level().pieces) rem[k] = level().pieces[k] - (used[k]||0);
+  return rem;
+}
+
+function buildTray(){
+  const slot = $("traySlots");
+  slot.innerHTML = "";
+  for (const tk in level().pieces){
+    const div = document.createElement("div");
+    div.className = "tray-item";
+    div.dataset.type = tk;
+    div.setAttribute("role","button");
+    div.setAttribute("tabindex","0");
+    const out = outerOf(tk), sc = 40/out;
+    const mini = el("svg", { width:84, height:84, viewBox:"-42 -42 84 84" });
+    const g = el("g", { transform:"scale(" + sc + ")" });
+    g.appendChild(makeGear(tk, { stroke: COL.line }).root);
+    mini.appendChild(g);
+    div.appendChild(mini);
+    const lbl = document.createElement("div");
+    lbl.className = "lbl";
+    lbl.textContent = "z = " + ringsOf(tk).map(r => r.z).join("∕");
+    div.appendChild(lbl);
+    const cnt = document.createElement("div");
+    cnt.className = "cnt";
+    div.appendChild(cnt);
+    div.addEventListener("pointerdown", ev => {
+      if (remainingCounts()[tk] > 0) startDrag(ev, tk, null);
+    });
+    slot.appendChild(div);
+  }
+}
+
+function updateTray(){
+  const rem = remainingCounts();
+  document.querySelectorAll(".tray-item").forEach(div => {
+    const tk = div.dataset.type;
+    div.classList.toggle("empty", rem[tk] <= 0);
+    div.querySelector(".cnt").textContent = "× " + Math.max(0, rem[tk]);
+  });
+}
+
+function buildLevelButtons(){
+  const box = $("lvlButtons");
+  box.innerHTML = "";
+  LEVELS.forEach((_, i) => {
+    const b = document.createElement("button");
+    b.className = "lvl";
+    b.textContent = i + 1;
+    b.addEventListener("click", () => { if (i <= unlocked) gotoLevel(i); });
+    box.appendChild(b);
+  });
+}
+
+function updateLevelButtons(){
+  document.querySelectorAll("button.lvl").forEach((b, i) => {
+    b.disabled = i > unlocked;
+    b.classList.toggle("cur", i === levelIdx);
+  });
+}
+
+function gotoLevel(i){
+  levelIdx = i; placed = []; solved = false; drag = null;
+  removeGhost(); buildTray(); rebuild();
+}
+
+/* ---------- Drag & Drop ---------- */
+function startDrag(e, typeKey, id){
+  e.preventDefault();
+  /* Pointer einfangen: hält den Zug am Leben, auch wenn sich das Rad
+     unter dem Finger weiterdreht oder der Finger das SVG verlässt. */
+  try { e.target.setPointerCapture(e.pointerId); } catch(_) {}
+  const p = toSvg(e.clientX, e.clientY);
+  drag = { type: typeKey, id: id || null, raw: p, x: p.x, y: p.y, valid: false, snapped: false };
+  rebuild();  /* gezogenes Rad verschwindet vom Blatt („in der Hand") */
+  const others = nodes;
+  const s = snapPosition(p, typeKey, others);
+  Object.assign(drag, s, { valid: positionValid(s, typeKey, others) });
+  makeGhost();
+  updateGhost();
+}
+
+function makeGhost(){
+  removeGhost();
+  ghost = makeGear(drag.type, { stroke: COL.line });
+  ghost.root.setAttribute("opacity", "0.9");
+  ghostLayer.appendChild(ghost.root);
+}
+
+function removeGhost(){
+  ghostLayer.innerHTML = "";
+  ghost = null;
+}
+
+function updateGhost(){
+  if (!ghost || !drag) return;
+  const onBoard = drag.raw.y <= BH && drag.raw.y >= -40;
+  ghost.root.style.display = onBoard ? "" : "none";
+  ghost.root.setAttribute("transform", "translate(" + drag.x + " " + drag.y + ")");
+  ghost.setStroke(drag.valid ? (drag.snapped ? COL.ok : COL.line) : COL.danger, false);
+}
+
+window.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const p = toSvg(e.clientX, e.clientY);
+  const s = snapPosition(p, drag.type, nodes);
+  drag.raw = p;
+  Object.assign(drag, s, { valid: positionValid(s, drag.type, nodes) });
+  updateGhost();
+});
+
+window.addEventListener("pointerup", () => {
+  if (!drag) return;
+  const d = drag; drag = null;
+  removeGhost();
+  const offBoard = !d.raw || d.raw.y > BH || d.raw.y < 0 || d.raw.x < 0 || d.raw.x > BW;
+  if (d.id){
+    /* Entfernen nur beim bewussten Ziehen nach unten ins Fach;
+       ungültige Position => Rad bleibt an seiner alten Stelle. */
+    if (d.raw && d.raw.y > BH) placed = placed.filter(g => g.id !== d.id);
+    else if (d.raw && d.valid) placed = placed.map(g => g.id === d.id ? { ...g, x:d.x, y:d.y } : g);
+  } else if (!offBoard && d.valid){
+    placed.push({ id: "g" + (nextId++), type: d.type, x: d.x, y: d.y });
+  }
+  rebuild();
+});
+
+/* Abbruch durch den Browser (z. B. Systemgeste): Rad bleibt, wo es war. */
+window.addEventListener("pointercancel", () => {
+  if (!drag) return;
+  drag = null;
+  removeGhost();
+  rebuild();
+});
+
+/* ---------- Animationsschleife ---------- */
+function frame(ms){
+  if (time.last === null) time.last = ms;
+  const dt = Math.min(0.05, (ms - time.last)/1000);
+  time.last = ms;
+  if (!net.jammed){ time.t += dt; time.frozen = null; }
+  else if (time.frozen === null) time.frozen = time.t;
+
+  const t = (net.jammed && time.frozen !== null) ? time.frozen : time.t;
+  const angles = computeAngles(nodes, net, "driver", level().driver.rpm, t);
+  for (const id in gearEls){
+    const a = angles[id] || 0;
+    gearEls[id].rotor.setAttribute("transform", "rotate(" + (a*180/Math.PI) + ")");
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- Start ---------- */
+$("btnReset").addEventListener("click", () => { placed = []; solved = false; removeGhost(); drag = null; rebuild(); });
+$("btnNext").addEventListener("click", () => gotoLevel(levelIdx + 1));
+buildLevelButtons();
+buildTray();
+rebuild();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
