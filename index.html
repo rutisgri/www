@@ -121,6 +121,7 @@
     gap: 20px;
     padding: 18px 22px;
   }
+  .stack { display: grid; gap: 16px; }
   .feature-text { display: flex; flex-direction: column; gap: 2px; }
   .feature .icon { margin: 0; font-size: clamp(3rem, 10vw, 4.5rem); }
   .feature .title { font-size: clamp(1.5rem, 5vw, 2.1rem); }
@@ -155,15 +156,26 @@
     <h2>Lernen</h2>
     <p class="section-lead">Üben, das Spass macht.</p>
 
-    <a class="card feature" href="wortschatzkiste-app/index.html">
-      <span class="icon">🗃️</span>
-      <span class="feature-text">
-        <span class="num">APP 01</span>
-        <span class="title">Wortschatzkiste</span>
-        <span class="desc">Wörter mit Karteikarten üben – Runde für Runde zum Wortschatz-Profi.</span>
-        <span class="go">ÖFFNEN</span>
-      </span>
-    </a>
+    <div class="stack">
+      <a class="card feature" href="wortschatzkiste-app/index.html">
+        <span class="icon">🗃️</span>
+        <span class="feature-text">
+          <span class="num">APP 01</span>
+          <span class="title">Wortschatzkiste</span>
+          <span class="desc">Wörter mit Karteikarten üben – Runde für Runde zum Wortschatz-Profi.</span>
+          <span class="go">ÖFFNEN</span>
+        </span>
+      </a>
+      <a class="card feature" style="--c:#b98cff" href="uhrenkiste-app/index.html">
+        <span class="icon">⏰</span>
+        <span class="feature-text">
+          <span class="num">APP 02</span>
+          <span class="title">Uhrenkiste</span>
+          <span class="desc">What’s the time? – Die Uhrzeit auf Englisch lernen, mit analoger und digitaler Uhr.</span>
+          <span class="go">ÖFFNEN</span>
+        </span>
+      </a>
+    </div>
   </section>
 
   <section id="games" style="--c: var(--pink)">
@@ -228,7 +240,7 @@
       <span class="feature-text">
         <span class="num">APP 01</span>
         <span class="title">Haushalt</span>
-        <span class="desc">Unsere Haushalts-App auf app.rutisgri.ch.</span>
+        <span class="desc">Unsere Haushalts-App.</span>
         <span class="go">ÖFFNEN</span>
       </span>
     </a>

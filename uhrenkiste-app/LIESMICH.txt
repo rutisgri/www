@@ -1,0 +1,24 @@
+What’s the time? – Die Uhrzeit auf Englisch lernen
+
+Hochladen (GitHub)
+  Im Repository "html" einen neuen Ordner uhrenkiste-app anlegen
+  und alle Dateien aus diesem ZIP direkt hineinlegen
+  (index.html, sw.js, manifest.webmanifest, die drei Symbole).
+
+Adresse
+  Nach 1–2 Minuten ist die App erreichbar unter
+  https://actifsource.github.io/html/uhrenkiste-app/
+
+Installieren
+  Android (Chrome): Menü ⋮ → "Zum Startbildschirm hinzufügen" bzw. "App installieren"
+  iPhone/iPad (Safari): Teilen → "Zum Home-Bildschirm"
+  Mac (Safari ab macOS Sonoma): Ablage → "Zum Dock hinzufügen"
+  Mac/PC (Chrome oder Edge): Installieren-Symbol in der Adressleiste
+
+Update
+  Neue Dateien hochladen, die App einmal mit Internet öffnen,
+  ganz schließen und neu öffnen.
+
+Daten mitnehmen
+  Fortschritte werden pro Gerät gespeichert.
+  Altes Gerät: 💾 → "Sicherung speichern", neues Gerät: 💾 → "Sicherung laden".
