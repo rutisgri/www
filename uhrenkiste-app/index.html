@@ -45,8 +45,10 @@ body{
   font-family:"Baloo 2","Trebuchet MS","Segoe UI",system-ui,sans-serif;
   font-size:18px; line-height:1.4; overflow-x:hidden;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 #app{max-width:560px; margin:0 auto; padding:16px 16px 40px}
+#app.practice{padding-bottom:12px}
 h1{font-size:2rem; line-height:1.1; margin:.2em 0 .1em; font-weight:800; letter-spacing:-.01em}
 h2{font-size:1.25rem; margin:1.2em 0 .4em; font-weight:700}
 p{margin:.3em 0}
@@ -100,11 +102,12 @@ button:focus-visible, svg:focus-visible, .group-row:focus-visible{outline:3px so
 .progress{height:12px; background:var(--surface); border-radius:8px; overflow:hidden; margin:6px 0 14px}
 .progress span{display:block; height:100%; background:var(--chalk); transition:width .3s}
 .answers{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.answers .btn{font-size:1.05rem; padding:8px; line-height:1.15}
 
 /* Analoge Uhr */
 .clock{display:block; width:100%; height:auto; overflow:visible; user-select:none; -webkit-user-select:none}
 .clock .hand{transform-origin:100px 100px; transform-box:view-box}
-.clock.interactive{touch-action:none; cursor:grab}
+.clock.interactive{touch-action:none; cursor:grab; -webkit-touch-callout:none; -webkit-user-select:none}
 .clock.interactive.dragging{cursor:grabbing}
 .clock.locked{cursor:default}
 .clock .knob{transition:r .15s}
@@ -147,10 +150,10 @@ button:focus-visible, svg:focus-visible, .group-row:focus-visible{outline:3px so
 @keyframes pop{from{transform:scale(.85); opacity:0}}
 
 /* Karte (Zufall) */
-.stack{position:relative; width:100%; margin:4px 0 30px}
-.stack.analog{aspect-ratio:1 / 1.12; max-height:62vh; max-width:min(100%, calc(62vh / 1.12)); margin-left:auto; margin-right:auto}
+.stack{position:relative; width:100%; margin:4px auto 30px}
+.stack.analog{aspect-ratio:1 / 1.12}
 .stack.digital{aspect-ratio:5 / 3.6}
-.stack.analog.hand{aspect-ratio:1 / 1.1; max-width:min(100%, 46vh)}
+.stack.analog.hand{aspect-ratio:1 / 1.1}
 .stack.hand{margin-bottom:26px}
 .stack.hand .top-card{cursor:default}
 .face .legend{color:#4F6B62; margin:4px 0 0; font-size:.9rem; gap:12px}
@@ -209,6 +212,7 @@ button:focus-visible, svg:focus-visible, .group-row:focus-visible{outline:3px so
 .msg{min-height:1.4em; font-size:.95rem; font-weight:600; margin:4px 0 8px}
 .msg.ok{color:var(--good)} .msg.err{color:var(--bad)}
 
+.voice-select{width:100%; min-height:52px; border-radius:14px; border:2px solid var(--line); background:var(--surface); color:var(--ink); font:inherit; font-weight:600; padding:0 12px}
 /* Dialog */
 dialog{border:0; border-radius:20px; padding:20px; width:min(92vw, 440px); background:var(--surface); color:var(--ink)}
 dialog::backdrop{background:rgba(10,30,24,.55)}
@@ -332,18 +336,38 @@ function randomTime(used){
 
 /* ---------- Sprechen ---------- */
 let voice = null;
+// Spaß-Stimmen vom Mac (Eddy, Grandpa, Bubbles …) werden nie verwendet
+const NOVELTY = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Eddy|Flo|Fred|Good News|Grandma|Grandpa|Jester|Junior|Kathy|Organ|Ralph|Reed|Rocko|Sandy|Shelley|Superstar|Trinoids|Whisper|Wobble|Zarvox)\b/i;
+const PREFERRED = ["Google UK English Female","Google UK English Male","Daniel","Serena","Kate","Arthur","Martha","Stephanie","Oliver","Microsoft Sonia","Microsoft Libby","Microsoft Ryan","Microsoft Hazel","Microsoft George"];
+function englishVoices(){
+  let vs = []; try{ vs = speechSynthesis.getVoices(); }catch(e){}
+  vs = vs.filter(v => /^en[-_]/i.test(v.lang) && !NOVELTY.test(v.name));
+  const rank = v => { const i = PREFERRED.findIndex(p => v.name.startsWith(p)); return (/^en[-_]GB/i.test(v.lang) ? 0 : 100) + (i < 0 ? 50 : i); };
+  return vs.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+}
 function pickVoice(){
-  try{
-    const vs = speechSynthesis.getVoices();
-    voice = vs.find(v => v.lang === "en-GB") || vs.find(v => /^en[-_]GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
-  }catch(e){}
+  const vs = englishVoices(), want = S.settings.voice;
+  voice = (want && vs.find(v => v.name === want)) || vs[0] || null;
+  fillVoices();
+}
+function voiceLabel(v){
+  const l = v.lang.replace("_", "-").toUpperCase();
+  const flag = {"EN-GB":"🇬🇧","EN-US":"🇺🇸","EN-AU":"🇦🇺","EN-IE":"🇮🇪","EN-CA":"🇨🇦","EN-IN":"🇮🇳","EN-ZA":"🇿🇦","EN-NZ":"🇳🇿","EN-SC":"🏴󠁧󠁢󠁳󠁣󠁴󠁿"}[l] || "🌐";
+  return `${flag} ${v.name}`;
+}
+function fillVoices(){
+  const sel = document.getElementById("voiceSel"); if(!sel) return;
+  const vs = englishVoices();
+  if(!vs.length){ sel.innerHTML = "<option>Keine englische Stimme gefunden</option>"; sel.disabled = true; return; }
+  sel.disabled = false;
+  sel.innerHTML = vs.map(v => `<option value="${esc(v.name)}" ${voice && v.name === voice.name ? "selected" : ""}>${esc(voiceLabel(v))}</option>`).join("");
 }
 if("speechSynthesis" in window){ pickVoice(); try{ speechSynthesis.onvoiceschanged = pickVoice; }catch(e){} }
 function speak(text){
   try{
     if(!("speechSynthesis" in window)) return;
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = "en-GB"; u.rate = .88; if(voice) u.voice = voice;
+    u.lang = voice ? voice.lang : "en-GB"; u.rate = .88; if(voice) u.voice = voice;
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   }catch(e){}
 }
@@ -415,6 +439,7 @@ function go(hash, replace){
 window.addEventListener("hashchange", render);
 function render(){
   const h = location.hash;
+  app.classList.toggle("practice", h === "#ueben" && !!ui.session);
   if(h !== "#ergebnis") document.querySelectorAll("canvas.confetti").forEach(c => c.remove());
   if(h === "#ueben" && ui.session) return renderPractice();
   if(h === "#ergebnis" && ui.result) return renderResult();
@@ -533,10 +558,29 @@ function ampmHTML(pm, disabled){
 function renderPractice(){
   const s = ui.session;
   if(!s){ go("#start", true); return; }
+  app.classList.add("practice");
   if(s.mode.how === "hand") renderHand(s); else renderAuto(s);
   wireHead(s);
   window.scrollTo(0, 0);
+  fitStack();
 }
+// Karte so groß wie möglich, aber so, dass alles ohne Scrollen auf den Bildschirm passt
+function fitStack(){
+  const st = document.querySelector(".stack");
+  if(!st || !app.classList.contains("practice")) return;
+  st.style.maxWidth = "";
+  const over = document.documentElement.scrollHeight - window.innerHeight;
+  if(over <= 0) return;
+  const r = st.getBoundingClientRect();
+  const nh = Math.max(160, r.height - over - 2);
+  st.style.maxWidth = Math.floor(r.width * nh / r.height) + "px";
+}
+let fitTimer = 0;
+const refit = () => { clearTimeout(fitTimer); fitTimer = setTimeout(fitStack, 120); };
+window.addEventListener("resize", refit);
+window.addEventListener("orientationchange", refit);
+if(window.visualViewport) visualViewport.addEventListener("resize", refit);
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(refit);
 
 /* Selbst stellen */
 // Rückseite der Karte mit der Lösung
@@ -650,6 +694,10 @@ function wireDrag(svg, t){
   svg.addEventListener("pointermove", e => { if(target) apply(angleAt(e).a); });
   const end = () => { target = null; svg.classList.remove("dragging", "dragging-m", "dragging-h"); };
   svg.addEventListener("pointerup", end);
+  // iPad/iPhone: beim Ziehen an der Uhr nicht die Seite scrollen
+  const noScroll = e => { if(!svg.classList.contains("locked")) e.preventDefault(); };
+  svg.addEventListener("touchstart", noScroll, { passive: false });
+  svg.addEventListener("touchmove", noScroll, { passive: false });
   svg.addEventListener("pointercancel", end);
   svg.addEventListener("keydown", e => {
     if(svg.classList.contains("locked")) return;
@@ -769,6 +817,7 @@ function finish(){
   save();
   ui.result = { mode: s.mode, score, lv, stars, before, after: modeLevel(st), average: avg(st), rounds: st.scores.length,
     missed: s.results.filter(r => !r.ok).map(r => r.t) };
+  app.classList.remove("practice");
   ui.session = null;
   history.replaceState(null, "", "#ergebnis");
   renderResult();
@@ -877,6 +926,13 @@ function renderInfo(){
         <li>💾 Ab und zu eine Sicherung speichern.</li>
       </ol>
     </section>
+    <h2>🗣️ Stimme</h2>
+    <section class="panel">
+      <label for="voiceSel" class="goal" style="display:block;margin:0 0 6px">Welche englische Stimme soll vorlesen?</label>
+      <select id="voiceSel" class="voice-select"></select>
+      <button class="btn ghost" id="voiceTest" style="margin-top:10px">▶ Probehören</button>
+      <p class="goal" style="margin-top:8px">Tipp für den Mac: Schönere Stimmen lädst du unter Systemeinstellungen → Bedienungshilfen → Gesprochene Inhalte → Systemstimme → Stimmen verwalten, z. B. „Daniel“ oder „Serena“ unter Englisch (Vereinigtes Königreich). Danach Chrome neu starten.</p>
+    </section>
     <h2>☀️ am und 🌙 pm</h2>
     <section class="panel">
       <p><strong>am</strong>: von Mitternacht bis Mittag. 7:00 am heißt „It’s seven o’clock in the morning“.</p>
@@ -889,6 +945,11 @@ function renderInfo(){
       <p class="goal" style="margin-top:8px">Bis halb sagt man <strong>past</strong> und die Stunde, die gerade ist. Danach sagt man <strong>to</strong> und die nächste Stunde.</p>
     </section>
   `;
+  fillVoices();
+  const sel = document.getElementById("voiceSel");
+  const sample = "It’s quarter past three in the afternoon.";
+  sel.onchange = () => { S.settings.voice = sel.value; save(); pickVoice(); speak(sample); };
+  document.getElementById("voiceTest").onclick = () => speak(sample);
   document.getElementById("back").onclick = () => go("#start");
   window.scrollTo(0, 0);
 }

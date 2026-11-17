@@ -1,5 +1,5 @@
 // What’s the time?: Offline-Speicher. Bei jedem Update die Versionsnummer erhöhen.
-const CACHE = "uhrenkiste-v2";
+const CACHE = "uhrenkiste-v4";
 const ASSETS = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-512-maskable.png"];
 
 self.addEventListener("install", e => {
